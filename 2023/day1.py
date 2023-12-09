@@ -1,5 +1,4 @@
 import re
-import math
 from utils.printing import display
 
 example = """1abc2

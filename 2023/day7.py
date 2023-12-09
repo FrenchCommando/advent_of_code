@@ -1,7 +1,3 @@
-import math
-from functools import reduce
-from operator import mul, add
-import re
 from utils.printing import display
 
 example = """32T3K 765
