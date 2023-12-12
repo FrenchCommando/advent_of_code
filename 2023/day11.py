@@ -1,4 +1,3 @@
-import queue
 from utils.printing import display
 
 example = """...#......
