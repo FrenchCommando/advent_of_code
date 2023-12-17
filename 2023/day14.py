@@ -50,8 +50,8 @@ def weight_count(grid, l_rock_count):
     return [weight_d(d=one_rock_count) for one_rock_count in l_rock_count]
 
 
-i_grid = example.split("\n")
-# i_grid = s
+# i_grid = example.split("\n")
+i_grid = s
 i_cube_rock = cube_rock(grid=i_grid)
 i_rock_count = rock_count(grid=i_grid, l_cube_rock=i_cube_rock)
 i_weight = weight_count(grid=i_grid, l_rock_count=i_rock_count)
@@ -120,10 +120,13 @@ def weight_cycle(grid, n):
         print(cycle, l_weight)
         print("Gap", weight_gap)
         print("Index", weight_index)
+        max_gap = max(weight_gap.values()) if weight_gap else None
         for k, v in weight_gap.items():
             remainder = (n_cycles - weight_index[k]) % v
             if remainder == 0:
-                print(k, remainder, v)
+                if v == max_gap:
+                    print(k, remainder, v)
+                    print()
             # spot zero remainder, and max period
     return l_weight
 
