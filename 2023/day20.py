@@ -68,7 +68,9 @@ def solve(grid, n, machine):
             if grid[direction][0] == "&":
                 states[direction][name] = False
 
-    def push_button(machine_run):
+    machine_count = dict()
+
+    def push_button(machine_run, index=None):
         nonlocal high_count, low_count
         q = queue.Queue()
         q.put(("button", "broadcaster", False))
@@ -77,14 +79,15 @@ def solve(grid, n, machine):
             if machine_run:
                 # print(origin_name, name, level)
                 if grid[name][0] == "machine" and not level:
-                    return True
-            # if 'kh' == name and 'pv' == origin_name:
-            #     print(origin_name, name, level)
-            #     print(states['kh'])
-            #     for k in states['kh']:
-            #         print("\t", k, states[k])
-            #         for kk in states[k]:
-            #             print("\t\t", kk, ''.join("Y" if u else "N" for u in states[kk].values()))
+                    return True  # never happening
+
+                if name in states['kh']:
+                    for kkk in states[name]:
+                        if all(states[kkk].values()):
+                            if kkk not in machine_count:
+                                machine_count[kkk] = index
+                            if len(machine_count) == len(states['kh']):
+                                return math.lcm(*(machine_count.values())), machine_count
 
             if level:
                 high_count += 1
@@ -118,25 +121,10 @@ def solve(grid, n, machine):
             for kk in states[k]:
                 print("\t\t", kk, states[kk])
         i = 1
-        while True and i < 3932:
-            button_output = push_button(machine_run=machine)
-            if any(states['kh'].values()) or True:
-                print(i, states['kh'])
-                for k in states['kh']:
-                    print("\t", k, states[k])
-                    for kk in states[k]:
-                        print("\t\t", kk, states[kk])
-                        print("\t\t", kk, ''.join("Y" if u else "N" for u in states[kk].values()))
-            if i % 100000 == 0:
-                print(i, button_output)
-                print(i, states['kh'])
-                for k in states['kh']:
-                    print("\t", k, states[k])
-                    for kk in states[k]:
-                        print("\t\t", kk, ''.join("Y" if u else "N" for u in states[kk].values()))
-                        # print("\t\t", kk, states[kk])
+        while True:
+            button_output = push_button(machine_run=machine, index=i)
             if button_output is not None:
-                return i
+                return button_output
             i += 1
     else:
         for i in range(n):
