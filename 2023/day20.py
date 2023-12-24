@@ -19,7 +19,7 @@ example2 = """broadcaster -> a
 &con -> output"""
 
 
-with open("day20.txt", "r") as f:
+with open("day20orig.txt", "r") as f:
     s = list(map(lambda u: u.strip(), f.readlines()))
     display(s)
 
@@ -27,6 +27,8 @@ with open("day20.txt", "r") as f:
 def parse(text):
     out = dict()
     for line in text:
+        if line == "":
+            continue
         pattern = r"(?P<type>[&%]?)(?P<name>[a-z]+) -> (?P<directions>(.*))"
         d_group = re.match(
             pattern=pattern,
@@ -76,7 +78,14 @@ def solve(grid, n, machine):
                 # print(origin_name, name, level)
                 if grid[name][0] == "machine" and not level:
                     return True
-            # print(origin_name, name, level)
+            # if 'kh' == name and 'pv' == origin_name:
+            #     print(origin_name, name, level)
+            #     print(states['kh'])
+            #     for k in states['kh']:
+            #         print("\t", k, states[k])
+            #         for kk in states[k]:
+            #             print("\t\t", kk, ''.join("Y" if u else "N" for u in states[kk].values()))
+
             if level:
                 high_count += 1
             else:
@@ -93,6 +102,8 @@ def solve(grid, n, machine):
                         q.put((name, direction_name, states[name]))
             elif module_type == "&":
                 states[name][origin_name] = level
+                # if name == 'pv':
+                #     print(states['pv'])
                 if all(states[name].values()):
                     for direction_name in directions:
                         q.put((name, direction_name, False))
@@ -101,16 +112,29 @@ def solve(grid, n, machine):
                         q.put((name, direction_name, True))
 
     if machine:
+        print(0, states['kh'])
+        for k in states['kh']:
+            print("\t", k, states[k])
+            for kk in states[k]:
+                print("\t\t", kk, states[kk])
         i = 1
-        while True and i < 10000:
+        while True and i < 3932:
             button_output = push_button(machine_run=machine)
-            print(i, states['kh'])
-            for k in states['kh']:
-                print("\t", k, states[k])
-                for kk in states[k]:
-                    print("\t\t", kk, states[kk])
-            if i % 10000 == 0:
+            if any(states['kh'].values()) or True:
+                print(i, states['kh'])
+                for k in states['kh']:
+                    print("\t", k, states[k])
+                    for kk in states[k]:
+                        print("\t\t", kk, states[kk])
+                        print("\t\t", kk, ''.join("Y" if u else "N" for u in states[kk].values()))
+            if i % 100000 == 0:
                 print(i, button_output)
+                print(i, states['kh'])
+                for k in states['kh']:
+                    print("\t", k, states[k])
+                    for kk in states[k]:
+                        print("\t\t", kk, ''.join("Y" if u else "N" for u in states[kk].values()))
+                        # print("\t\t", kk, states[kk])
             if button_output is not None:
                 return i
             i += 1
@@ -133,3 +157,12 @@ display(x=l_solved)
 display(x=math.prod(l_solved.values()))
 l_solved_machine = solve(grid=l_grid, n=None, machine=True)
 display(x=l_solved_machine)
+
+
+# copy past all the sub-problems one by one
+# hz 4079
+# qh 3761
+# xm 3931
+# pv 4049
+
+print(4079 * 3761 * 3931 * 4049)
