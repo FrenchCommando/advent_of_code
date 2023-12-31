@@ -1,10 +1,10 @@
 def display(x):
     print(f"{x}\t{type(x)}")
-    if isinstance(x, list):
+    if isinstance(x, (list, set)):
         print(f"\tlength {len(x)}")
         if len(x) != 0:
-            if isinstance(x[0], list):
-                for i in x:
+            for i in x:
+                if isinstance(i, (list, set)):
                     display(x=i)
 
 
