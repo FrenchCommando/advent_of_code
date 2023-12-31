@@ -55,12 +55,7 @@ def solve(links):
         while modified:
             modified = False
 
-            direct_connection_count = 0
-            for n in item['inner_set']:
-                for k in connected[n]:
-                    if k in item['outer_set']:
-                        direct_connection_count += 1
-            if direct_connection_count > 3:
+            if get_direct_connection(item=item) > 3:
                 return False
 
             connection_count = dict()
@@ -102,6 +97,14 @@ def solve(links):
 
         return True
 
+    def get_direct_connection(item):
+        direct_connection_count = 0
+        for n in item['inner_set']:
+            for k in connected[n]:
+                if k in item['outer_set']:
+                    direct_connection_count += 1
+        return direct_connection_count
+
     def get_count(item):
         # definitions are consistent
         count = 0
@@ -118,42 +121,44 @@ def solve(links):
     def build_hypothesis(item):
         # choose an undecided node connected to the border
         # add it to either inner or outer
-        candidate = None
+
+        candidate_count = dict()
         for n in item['inner_set']:
             for k in connected[n]:
                 if k not in item['inner_set'] and k not in item['outer_set']:
-                    candidate = k
-                    break
-            if candidate is not None:
-                break
-        if candidate is None:
-            # print("Ran out of items, nothing to add")
-            # print(item)
+                    if k not in candidate_count:
+                        candidate_count[k] = 1
+                    else:
+                        candidate_count[k] += 1
+
+        if not candidate_count:
             return
+
+        candidate = max(candidate_count.keys(), key=lambda x: candidate_count[x])
 
         # print(candidate, item)
         item1 = dict(
             inner_set={*item['inner_set']}, outer_set={*item['outer_set'], candidate},
         )
         if collapse(item=item1):
-            t_count1 = get_count(item=item1)
+            # t_key0 = get_count(item=item1)
+            t_key0 = get_direct_connection(item=item1)
             t_item1_inner = tuple(item1['inner_set'])
             t_item1_outer = tuple(item1['outer_set'])
-            q.put((t_count1 - len(t_item1_outer), t_item1_inner, t_item1_outer))
+            q.put((t_key0, t_item1_inner, t_item1_outer))
 
         item0 = dict(
             inner_set={*item['inner_set'], candidate}, outer_set={*item['outer_set']},
         )
         if collapse(item=item0):
-            t_count0 = get_count(item=item0)
+            # t_key0 = get_count(item=item0)
+            t_key0 = get_direct_connection(item=item0)
             t_item0_inner = tuple(item0['inner_set'])
             t_item0_outer = tuple(item0['outer_set'])
-            q.put((t_count0 - len(t_item0_outer), t_item0_inner, t_item0_outer))
+            q.put((t_key0, t_item0_inner, t_item0_outer))
         # print(candidate)
 
-    # q = queue.PriorityQueue()
-    # q = queue.Queue()
-    q = queue.LifoQueue()
+    q = queue.PriorityQueue()
     q.put((0, tuple({n_ref}), tuple()))
 
     q_count = 0
@@ -171,10 +176,14 @@ def solve(links):
                 len(d['inner_set']), len(d['outer_set']),
                 q_count
             )
-        # print(q.qsize(), len(d['inner_set']), len(d['outer_set']), q_count, d)
+        # print(
+        #     q.qsize(), len(d['inner_set']) + len(d['outer_set']),
+        #     len(d['inner_set']), len(d['outer_set']), q_count, d
+        # )
         # inner_set is connex
         # outer_set is not necessarily connex
         if is_success(item=d):
+            print(q.qsize(), q_count)
             nd = len(d['inner_set'])
             return nd * (len(nodes) - nd), nd, d
         build_hypothesis(item=d)
@@ -188,7 +197,6 @@ l_solved = solve(links=l_links)
 display(x=l_links)
 display(x=l_solved)
 
-# answer if 603xxx - I cleared it without recording it - can't reproduce
-# I don't know how it's possible since the algo is not stochastic
-# (603368, 796,  # wtf
-# Christmas present? no idea what happened
+# q size 791
+# n rounds 792
+# result 603368, set size 796,
