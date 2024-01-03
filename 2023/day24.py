@@ -1,3 +1,5 @@
+import math
+
 from utils.printing import display
 
 example = """19, 13, 30 @ -2,  1, -2
@@ -192,6 +194,10 @@ def vector_product(vx0, vy0, vz0, vx1, vy1, vz1):
     return x, y, z
 
 
+def vector_norm(vx0, vy0, vz0):
+    return math.sqrt(vx0 * vx0 + vy0 * vy0 + vz0 * vz0)
+
+
 def scalar_product(v0, v1):
     return v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2]
 
@@ -233,19 +239,9 @@ def solve(blocks):
     #     print("No Parallel vectors - try something else")
     # print()
 
-    value = 500000000
+    value = 69809585182
     block_index = 78
     block_index_ref = 0
-
-    d_projection2v = dict()
-    d_projection1 = dict()
-    d_projection2 = dict()
-    d_value2 = dict()
-    d_value2r = dict()
-
-    # polynomial in 'value'
-    # f(x, order 1) | g(x, order 2)
-    # for each block
 
     while True:
         # collision at time 'value' with block0
@@ -255,8 +251,64 @@ def solve(blocks):
             block0['y'] + value * block0['vy'],
             block0['z'] + value * block0['vz'],
         )
-        if value % 1000000 == 0:
+        # find equation of hyperplane for 2 blocks
+        block1 = blocks[block_index_ref]
+        position11 = block1['x'], block1['y'], block1['z']
+        position12 = (
+            block1['x'] + block1['vx'],
+            block1['y'] + block1['vy'],
+            block1['z'] + block1['vz'],
+        )
+
+        tangent1 = vector_product(
+            vx0=position0[0] - position11[0],
+            vy0=position0[1] - position11[1],
+            vz0=position0[2] - position11[2],
+            vx1=position11[0] - position12[0],
+            vy1=position11[1] - position12[1],
+            vz1=position11[2] - position12[2],
+        )
+
+        if value % 1 == 0:
             print("Index Value position", block_index, value, position0)
+        if value > 100:
+            break  # use next method
+
+        projection1 = scalar_product(v0=tangent1, v1=position11)
+
+        success = True
+        for i_block, block2 in enumerate(blocks):
+            if i_block == block_index or i_block == block_index_ref:
+                continue
+            success = False
+            position2 = block2['x'], block2['y'], block2['z']
+            velocity2 = block2['vx'], block2['vy'], block2['vz']
+            projection2 = scalar_product(v0=tangent1, v1=position2)
+            projection2v = scalar_product(v0=tangent1, v1=velocity2)
+            value2 = (projection1 - projection2) / projection2v
+            value2r = (projection1 - projection2) % projection2v
+            print("\t\t\tvalue", i_block, value2, value2r)
+            # print("\t\t\tposition", position2)
+            # print("\t\t\tvelocity", velocity2)
+            if value2 <= 0:
+                block_index = i_block
+                value = 0
+                break
+            if value2r != 0:
+                break
+            success = True
+            print(value2, block2)
+        if success:
+            return block_index, value
+        value += 1
+
+    def alignment(value):
+        block0 = blocks[block_index]
+        position0 = (
+            block0['x'] + value * block0['vx'],
+            block0['y'] + value * block0['vy'],
+            block0['z'] + value * block0['vz'],
+        )
         # find equation of hyperplane for 2 blocks
         block1 = blocks[block_index_ref]
         position11 = block1['x'], block1['y'], block1['z']
@@ -276,7 +328,39 @@ def solve(blocks):
         )
         projection1 = scalar_product(v0=tangent1, v1=position11)
 
-        success = True
+        location2_i = None
+        location2_align = None
+        location3_align = None
+        for i_block_align, block2_align in enumerate(blocks):
+            if i_block_align == block_index or i_block_align == block_index_ref:
+                continue
+            position2_align = block2_align['x'], block2_align['y'], block2_align['z']
+            velocity2_align = block2_align['vx'], block2_align['vy'], block2_align['vz']
+            projection2_align = scalar_product(v0=tangent1, v1=position2_align)
+            projection2v_align = scalar_product(v0=tangent1, v1=velocity2_align)
+            value2_align = (projection1 - projection2_align) / projection2v_align
+            location2_align = (
+                block2_align['x'] + value2_align * block2_align['vx'] - position0[0],
+                block2_align['y'] + value2_align * block2_align['vy'] - position0[1],
+                block2_align['z'] + value2_align * block2_align['vz'] - position0[2],
+            )
+            location2_i = i_block_align
+            break
+        for i_block_align, block3_align in enumerate(blocks[location2_i + 1:]):
+            if i_block_align == block_index or i_block_align == block_index_ref:
+                continue
+            position3_align = block3_align['x'], block3_align['y'], block3_align['z']
+            velocity3_align = block3_align['vx'], block3_align['vy'], block3_align['vz']
+            projection3_align = scalar_product(v0=tangent1, v1=position3_align)
+            projection3v_align = scalar_product(v0=tangent1, v1=velocity3_align)
+            value3_align = (projection1 - projection3_align) / projection3v_align
+            location3_align = (
+                block3_align['x'] + value3_align * block3_align['vx'] - position0[0],
+                block3_align['y'] + value3_align * block3_align['vy'] - position0[1],
+                block3_align['z'] + value3_align * block3_align['vz'] - position0[2],
+            )
+            break
+
         for i_block, block2 in enumerate(blocks):
             if i_block == block_index or i_block == block_index_ref:
                 continue
@@ -287,60 +371,105 @@ def solve(blocks):
             projection2v = scalar_product(v0=tangent1, v1=velocity2)
             value2 = (projection1 - projection2) / projection2v
             value2r = (projection1 - projection2) % projection2v
-            # print(projection1, projection2, projection2v)
-            # print("\t\ti, value2, value2r", i_block, value2, value2r)
-            # print("\t\t\tprojection2v", i_block, d_projection2v.get(i_block, 0), projection2v)
-            # print("\t\t\tprojection2", i_block, d_projection2.get(i_block, 0), projection2)
-            # print("\t\t\tprojection1", i_block, d_projection1.get(i_block, 0), projection1)
-            # print("\t\t\t\t\t", i_block, projection2v - d_projection2v.get(i_block, 0))
-            # print("\t\t\t\t\t", i_block, projection2 - d_projection2.get(i_block, 0))
-            # print("\t\t\t\t\t", i_block, projection1 - d_projection1.get(i_block, 0))
-            # print("\t\t\t\t\t", i_block, value2 - d_value2.get(i_block, 0))
-            # print("\t\t\t\t\t", i_block, value2r - d_value2r.get(i_block, 0))
-            d_projection2v[i_block] = projection2v
-            d_projection1[i_block] = projection1
-            d_projection2[i_block] = projection2
-            d_value2[i_block] = value2
-            d_value2r[i_block] = value2r
+            print("\t\t\tvalue", value2, value2r)
             # print("\t\t\tposition", position2)
             # print("\t\t\tvelocity", velocity2)
             if value2 <= 0:
-                block_index = i_block
-                value = 0
                 break
-                # tangent2 = vector_product(
-                #     vx0=position2[0] - position11[0],
-                #     vy0=position2[1] - position11[1],
-                #     vz0=position2[2] - position11[2],
-                #     vx1=position2[0] - position12[0],
-                #     vy1=position2[1] - position12[1],
-                #     vz1=position2[2] - position12[2],
-                # )
-                # projection22 = scalar_product(v0=tangent2, v1=position2)
-                # projection02 = scalar_product(v0=tangent2, v1=position0)
-                # velocity0 = block0['vx'], block0['vy'], block0['vz']
-                # projection02v = scalar_product(v0=tangent2, v1=velocity0)
-                # value_increment = (projection22 - projection02) / projection02v
-                # print("Increment", value, value2, value_increment, projection22, projection02, projection02v)
-                # # increment value enough for value2 to be positive
-                # if value_increment < -10:
-                #     # continue
-                #     raise ValueError("ValueIncrement should not be negative")
-                # else:
-                #     value += int(value_increment)
-                #     break
             if value2r != 0:
                 break
             success = True
             print(value2, block2)
         if success:
-            return block_index, value
-        value += 1
+            print("Success", block_index, value)
+            raise ValueError(f"{value}")
+
+        alignment_score = scalar_product(v0=vector_product(
+            vx0=location2_align[0], vy0=location2_align[1], vz0=location2_align[2],
+            vx1=location3_align[0], vy1=location3_align[1], vz1=location3_align[2],
+        ), v1=tangent1) / (vector_norm(
+            vx0=location2_align[0], vy0=location2_align[1], vz0=location2_align[2],
+        ) * vector_norm(
+            vx0=location3_align[0], vy0=location3_align[1], vz0=location3_align[2],
+        ))
+        return abs(alignment_score)
+
+    try:
+        low_value = 2
+        low_score = alignment(value=low_value)
+        high_value = 10000
+        high_score = alignment(value=high_value)
+        while high_score < low_score:
+            low_score = high_score
+            high_value *= 2
+            high_score = alignment(value=high_value)
+        print(low_value, high_value)
+        print(low_score, high_score)
+
+        value_count = 1
+        while low_value != high_value:
+            value_count += 1
+            if value_count > 100:
+                break
+            mid0_value = low_value + (high_value - low_value) // 3
+            mid1_value = low_value + (high_value - low_value) * 2 // 3
+            mid0_score = alignment(value=mid0_value)
+            mid1_score = alignment(value=mid1_value)
+            if mid0_score < mid1_score:
+                high_value = mid1_value
+            else:
+                low_value = mid0_value
+            print(low_value, mid0_value, mid1_value, high_value)
+            print("\t", mid0_score, mid1_score)
+        print(low_value, high_value)
+        print(mid0_score, mid1_score)
+    except ValueError as e:  # raise ValueError for success, bad
+        return int(f"{e}")
+
+
+def solve_value(blocks, value):
+    block_index = 78
+    block0 = blocks[block_index]
+    block0_value = value
+    position0 = (
+        block0['x'] + value * block0['vx'],
+        block0['y'] + value * block0['vy'],
+        block0['z'] + value * block0['vz'],
+    )
+    block1 = blocks[1]
+    block1_value = 545820697399
+    position1 = (
+        block1['x'] + block1_value * block1['vx'],
+        block1['y'] + block1_value * block1['vy'],
+        block1['z'] + block1_value * block1['vz'],
+    )
+
+    d = (
+        position1[0] - position0[0],
+        position1[1] - position0[1],
+        position1[2] - position0[2],
+    )
+    dt = block1_value - value
+    dd = (
+        d[0] / dt,
+        d[1] / dt,
+        d[2] / dt,
+    )
+    p0 = (
+        position0[0] - value * dd[0],
+        position0[1] - value * dd[1],
+        position0[2] - value * dd[2],
+    )
+    return dict(
+        x=p0[0], y=p0[1], z=p0[2],
+    )
 
 
 # grid_value2 = example.split("\n")
 grid_value2 = s
 l_blocks2 = parse(text=grid_value2)
-l_coordinates = solve(blocks=l_blocks2)
+l_result_value = solve(blocks=l_blocks2)
+l_coordinates = solve_value(blocks=l_blocks2, value=l_result_value)
+display(x=l_result_value)
 display(x=l_coordinates)
-# display(x=sum(l_coordinates[k] for k in ['x', 'y', 'z']))
+display(x=sum(l_coordinates[k] for k in ['x', 'y', 'z']))
