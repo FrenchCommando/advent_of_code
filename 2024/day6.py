@@ -47,7 +47,7 @@ def count(l):
     flat_length = len(flat)
     start = flat.index("^")
     start_x, start_y = start // m, start % m
-    print(start, start_x, start_y)
+    print("Start", start, start_x, start_y)
 
     grid = [[False for j in range(m)] for i in range(n)]
 
@@ -92,12 +92,6 @@ def count2(l):
         down=set(),
         left=set(),
     )
-    seen_for_loop = dict(
-        up=set(),
-        right=set(),
-        down=set(),
-        left=set(),
-    )
     increment = dict(
         up=(-1, 0),
         right=(0, 1),
@@ -105,59 +99,90 @@ def count2(l):
         left=(0, -1),
     )
 
-    def direction():
+    def direction(first_direction):
         dirs = seen.keys()
+        found = False
+        for one_direction in dirs:
+            if not found and one_direction != first_direction:
+                continue
+            found = True
+            yield one_direction
         while True:
             for one_direction in dirs:
                 yield one_direction
-    it_direction = direction()
+    it_direction = direction(first_direction="up")
 
     flat = "".join(l)
-    flat_length = len(flat)
+    # flat_length = len(flat)
     start = flat.index("^")
     start_x, start_y = start // m, start % m
-    print(start, start_x, start_y)
+    print("Start", start, start_x, start_y)
 
-    grid = [[False for j in range(m)] for i in range(n)]
-
-    loop_count = 0
+    loops = set()
     current_position = start_x, start_y
-    current_direction = next(it_direction)
     while True:
-        next_direction = next(it_direction)
+        current_direction = next(it_direction)
         current_increment = increment[current_direction]
 
         inside = True
         walking = True
         while inside and walking:
-            grid[current_position[0]][current_position[-1]] = True
-            i_loop = 0
-            while True:
-                this_position = (current_position[0]- i_loop * current_increment[0], current_position[-1]- i_loop * current_increment[-1])
-                if not (0 <= this_position[0] < n and 0 <= this_position[-1] < m):
-                    break
-                if l[this_position[0]][this_position[-1]] == "#":
-                    break
-                seen_for_loop[current_direction].add(this_position)
-                i_loop += 1
-            if current_position in seen_for_loop[next_direction]:
-                print(current_position, current_direction, next_direction)
-                loop_count += 1
-            if not (0<=current_position[0] + current_increment[0] <n and 0<=current_position[-1] + current_increment[-1]<m):
+            next_position = (current_position[0] + current_increment[0], current_position[-1] + current_increment[-1])
+
+            def confirm_obstacle(candidate_internal):
+                position_internal = (start_x, start_y)
+                direction_internal = "up"
+                if not (0 <= candidate_internal[0] < n and 0 <= candidate_internal[-1] < m):
+                    return False
+                if l[candidate_internal[0]][candidate_internal[-1]] == "^":
+                    return False
+                if l[candidate_internal[0]][candidate_internal[-1]] == "#":
+                    return False
+                seen_for_obstacle = dict(up=set(), right=set(), down=set(), left=set())
+
+                it_direction_obs = direction(first_direction=direction_internal)
+                while True:
+                    direction_internal = next(it_direction_obs)
+                    increment_internal = increment[direction_internal]
+                    walking_internal = True
+                    while walking_internal:
+                        # print(loops, seen, seen_for_obstacle, direction_internal, position_internal)
+                        position_internal_next = (position_internal[0] + increment_internal[0],
+                                                  position_internal[-1] + increment_internal[-1])
+                        if not (0 <= position_internal_next[0] < n and 0 <= position_internal_next[-1] < m):
+                            return False
+
+                        if (l[position_internal_next[0]][position_internal_next[-1]] == "#"
+                                or position_internal_next == candidate_internal):
+                            walking_internal = False
+                            if position_internal in seen_for_obstacle[direction_internal]:
+                                return True
+                            else:
+                                seen_for_obstacle[direction_internal].add(position_internal)
+                            break
+                        position_internal = position_internal_next
+
+            if confirm_obstacle(
+                    candidate_internal=next_position,
+            ):
+                loops.add(next_position)
+                # print(next_position, loops)
+
+            if not (0 <= next_position[0] < n and 0 <= next_position[-1] < m):
                 inside = False
                 break
-            if l[current_position[0] + current_increment[0]][current_position[-1] + current_increment[-1]] == "#":
+            if l[next_position[0]][next_position[-1]] == "#":
                 walking = False
                 if current_position in seen[current_direction]:
                     inside = False
                 else:
                     seen[current_direction].add(current_position)
                 break
-            current_position = current_position[0] + current_increment[0], current_position[-1] + current_increment[-1]
+
+            current_position = next_position
         if not inside:
             break
-        current_direction = next_direction
-    return loop_count
+    return len(loops)
 
 
 p2 = count2(l=example.split("\n"))
