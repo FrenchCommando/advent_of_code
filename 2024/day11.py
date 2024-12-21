@@ -1,26 +1,6 @@
-import re
 from utils.printing import display
 
-example = """Initial arrangement:
-125 17
-
-After 1 blink:
-253000 1 7
-
-After 2 blinks:
-253 0 2024 14168
-
-After 3 blinks:
-512072 1 20 24 28676032
-
-After 4 blinks:
-512 72 2024 2 0 2 4 2867 6032
-
-After 5 blinks:
-1036288 7 2 20 24 4048 1 4048 8096 28 67 60 32
-
-After 6 blinks:
-2097446912 14168 4048 2 0 2 4 40 48 2024 40 48 80 96 2 8 6 7 6 0 3 2"""
+example = """125 17"""
 
 
 
@@ -29,21 +9,66 @@ with open("day11.txt", "r") as f:
     display(s)
 
 
-def count(l):
-    return 1
+def count(l, n=25):
+    stones = list(map(int, l.split(" ")))
+    # print("stones", stones)
+    for i in range(n):
+        modified = []
+        for stone in stones:
+            if stone == 0:
+                modified.append(1)
+            else:
+                s_stone = str(stone)
+                if len(s_stone) % 2 == 0:
+                    modified.append(int(s_stone[:len(s_stone) // 2]))
+                    modified.append(int(s_stone[len(s_stone) // 2:]))
+                else:
+                    modified.append(stone * 2024)
+        stones = modified
+        # print(i, len(stones))
+
+    return len(stones)
 
 
-p = count(l=example.split("\n"))
-print("count", p)
-ps = count(l=[line.strip() for line in s])
+
+p6 = count(l=example, n=6)
+p25 = count(l=example, n=25)
+print("count", p6, p25)
+ps = count(l=s[0].strip(), n=25)
 print("count", ps)
+# ps2 = count(l=s[0].strip(), n=75)
+# print("count", ps2)
 
 
-def count2(l):
-    return 1
+def count2(l, n=25):
+    stones = list(map(int, l.split(" ")))
+    results = dict()
 
+    def projection(stone, steps):
+        if (stone, steps) in results:
+            return results[(stone, steps)]
+        if steps == 0:
+            res = 1
+        else:
+            if stone == 0:
+                res = projection(1, steps-1)
+            else:
+                s_stone = str(stone)
+                if len(s_stone) % 2 == 0:
+                    res = projection(int(s_stone[:len(s_stone) // 2]), steps-1) + projection(int(s_stone[len(s_stone) // 2:]), steps-1)
+                else:
+                    res = projection(stone * 2024, steps-1)
+        results[(stone, steps)] = res
+        return res
+    projected = [projection(stone, n) for stone in stones]
+    print(projected)
+    return sum(projected)
 
-p2 = count2(l=example.split("\n"))
+p6 = count2(l=example, n=6)
+p25 = count2(l=example, n=25)
+print("count2", p6, p25)
+p2 = count2(l=example, n=75)
 print("count2", p2)
-ps2 = count2(l=[line.strip() for line in s])
-print("count2", ps2)
+ps225 = count2(l=s[0].strip(), n=25)
+ps275 = count2(l=s[0].strip(), n=75)
+print("count2", ps225, ps275)
