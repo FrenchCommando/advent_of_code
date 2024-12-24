@@ -1,7 +1,16 @@
 import re
 from utils.printing import display
 
-example = """"""
+example = """r, wr, b, g, bwu, rb, gb, br
+
+brwrr
+bggr
+gbbr
+rrbgbr
+ubwu
+bwurrg
+brgr
+bbrgwb"""
 
 
 

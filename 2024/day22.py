@@ -1,7 +1,10 @@
 import re
 from utils.printing import display
 
-example = """"""
+example = """1
+10
+100
+2024"""
 
 
 

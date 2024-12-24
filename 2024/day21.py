@@ -1,7 +1,11 @@
 import re
 from utils.printing import display
 
-example = """"""
+example = """029A
+980A
+179A
+456A
+379A"""
 
 
 
