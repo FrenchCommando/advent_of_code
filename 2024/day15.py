@@ -1,4 +1,3 @@
-import re
 from utils.printing import display
 
 example = """##########
@@ -45,7 +44,8 @@ def count(l):
 
 
 p = count(l=example.split("\n"))
-print("count", p)
+p2 = count(l=example2.split("\n"))
+print("count", p, p2)
 ps = count(l=[line.strip() for line in s])
 print("count", ps)
 
@@ -54,7 +54,8 @@ def count2(l):
     return 1
 
 
-p2 = count2(l=example.split("\n"))
-print("count2", p2)
+p21 = count2(l=example.split("\n"))
+p22 = count2(l=example2.split("\n"))
+print("count2", p21, p22)
 ps2 = count2(l=[line.strip() for line in s])
 print("count2", ps2)
