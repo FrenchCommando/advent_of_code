@@ -13,8 +13,27 @@ with open("day22.txt", "r") as f:
     display(s)
 
 
+def generate(number, skip):
+    for turn in range(skip):
+        v = number * 64
+        number = number ^ v
+        number = number % 16777216
+        v = number // 32
+        number = number ^ v
+        number = number % 16777216
+        v = number * 2048
+        number = number ^ v
+        number = number % 16777216
+    return number
+
 def count(l):
-    return 1
+    c = []
+    for line in l:
+        number = int(line)
+        generated = generate(number=number, skip=2000)
+        c.append(generated)
+    print(c)
+    return sum(c)
 
 
 p = count(l=example.split("\n"))
