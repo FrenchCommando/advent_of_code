@@ -1,4 +1,6 @@
 import re
+from functools import lru_cache
+
 from utils.printing import display
 
 example = """029A
@@ -89,6 +91,34 @@ def convert_num(num0, num1):
     return "".join(out), "".join(out[::-1])
 
 
+@lru_cache(maxsize=1_000_000)
+def counted(cc, n_robots):
+    # print("Counted", cc, n_robots)
+    if n_robots == 0:
+        return len(cc)
+
+    if cc.index("A") != len(cc) - 1:
+        s_cc = cc.split("A")[:-1]
+        return sum(counted(s_u + "A", n_robots) for s_u in s_cc)
+
+    c1_list = [[]]
+    last1 = "A"
+    for v0 in cc:
+        cc1 = convert_key(num0=last1, num1=v0)
+        if isinstance(cc1, tuple):
+            c1_temp = []
+            for ccc1 in cc1:
+                for c1_element in c1_list:
+                    c1_temp.append(c1_element + [ccc1 + "A"])
+            c1_list = c1_temp
+        else:
+            for c1_element in c1_list:
+                c1_element.append(cc1 + "A")
+        last1 = v0
+
+    return min(counted(''.join(u), n_robots - 1) for u in c1_list)
+
+
 def command(line, n_robots):
     # wrong track, I need a fancy branch-and-bound
     # choose between going horizontal first or vertical first
@@ -112,32 +142,12 @@ def command(line, n_robots):
         last = v
     print(len(c0), c0)
 
-    for a in range(n_robots):
-        print(line, a, n_robots, len(c0))
-        c1 = []
-        for c0_element in c0:
-            c0_one = "".join(c0_element)
-            c1_list = [[]]
-            last1 = "A"
-            for v0 in c0_one:
-                cc1 = convert_key(num0=last1, num1=v0)
-                if isinstance(cc1, tuple):
-                    c1_temp = []
-                    for ccc1 in cc1:
-                        for c1_element in c1_list:
-                            c1_temp.append(c1_element + [ccc1 + "A"])
-                    c1_list = c1_temp
-                else:
-                    for c1_element in c1_list:
-                        c1_element.append(cc1 + "A")
-                last1 = v0
-            c1.extend(c1_list)
-        # for u in c0:
-        #     print(''.join(u))
+    c0_joined = [''.join(u) for u in c0]
 
-        c0 = c1
-        # print(len(c1), c1)
-    return min(len(''.join(u)) for u in c0)
+    results = [counted(cc, n_robots) for cc in c0_joined]
+    print(c0_joined)
+    print(results)
+    return min(results)
 
 
 def count(l, n_robots):
@@ -157,7 +167,8 @@ print("count", p)
 ps = count(l=[line.strip() for line in s], n_robots=2)
 print("count", ps)
 
-p2 = count(l=example.split("\n"), n_robots=25)
-print("count2", p2)
+# unused anyway
+# p2 = count(l=example.split("\n"), n_robots=25)
+# print("count2", p2)
 ps2 = count(l=[line.strip() for line in s], n_robots=25)
 print("count2", ps2)
