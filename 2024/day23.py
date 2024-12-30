@@ -42,7 +42,30 @@ with open("day23.txt", "r") as f:
 
 
 def count(l):
-    return 1
+    connected_to = dict()
+    for couple in l:
+        left, right = couple.strip().split("-")
+        if left not in connected_to:
+            connected_to[left] = {right}
+        else:
+            connected_to[left].add(right)
+        if right not in connected_to:
+            connected_to[right] = {left}
+        else:
+            connected_to[right].add(left)
+
+    triple = set()
+    for left, connection in connected_to.items():
+        for right in connection:
+            for node in connected_to[right]:
+                if node in connection:
+                    triple.add(",".join(sorted((left, right, node))))
+    print(triple)
+
+    triple_with_t = [t for t in triple if any(u.startswith("t") for u in t.split(","))]
+    print(triple_with_t)
+
+    return len(triple_with_t)
 
 
 p = count(l=example.split("\n"))
