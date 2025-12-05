@@ -1,7 +1,3 @@
-import itertools
-import json
-import re
-
 from utils.printing import display
 
 
