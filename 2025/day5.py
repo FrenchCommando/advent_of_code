@@ -1,6 +1,16 @@
 from utils.printing import display
 
-example = """SAMPLE"""
+example = """3-5
+10-14
+16-20
+12-18
+
+1
+5
+8
+11
+17
+32"""
 
 
 with open("day5.txt", "r") as f:
@@ -12,17 +22,22 @@ def parsed(l):
     return [ll.strip() for ll in l]
 
 
-def get_best_result(stuff):
-    return f"{stuff}100"
-
-
 def get_count(p_internal):
-    contents = []
-    for stuff in p_internal:
-        best_result = get_best_result(stuff=stuff)
-        contents.append(best_result)
-        print(stuff, best_result)
-    count = sum(map(int, contents))
+    ranges = []
+    stuffs = []
+    for line in p_internal:
+        if "-" in line:
+            ranges.append(list(map(int, line.split("-"))))
+        if line.isnumeric():
+            stuffs.append(int(line))
+
+    count = 0
+    for stuff in stuffs:
+        for left, right in ranges:
+            if left <= stuff <= right:
+                count += 1
+                break
+
     print(count)
 
 
@@ -33,20 +48,35 @@ get_count(p_internal=parsed(l=s))
 print()
 get_count(p_internal=p)
 print()
-raise ValueError()
-
-
-def get_best_result2(stuff):
-    return f"{stuff}200"
 
 
 def get_count2(p_internal):
-    contents = []
-    for stuff in p_internal:
-        best_result = get_best_result2(stuff=stuff)
-        contents.append(best_result)
-        print(stuff, best_result)
-    count = sum(map(int, contents))
+    ranges = []
+    for line in p_internal:
+        if "-" in line:
+            ranges.append(list(map(int, line.split("-"))))
+
+    has_overlaps = True
+    while has_overlaps:
+        has_overlaps = False
+        for i1, (left, right) in enumerate(ranges):
+            for i2, (left2, right2) in enumerate(ranges):
+                if i1 == i2:
+                    continue
+                if left2 <= left <= right2:
+                    has_overlaps = True
+                    if left2 <= right <= right2:
+                        ranges.pop(i1)
+                    else:
+                        ranges[i1] = right2 + 1, right
+                    break
+            if has_overlaps:
+                break
+
+    count = 0
+    for left, right in ranges:
+        count += right - left + 1
+
     print(count)
 
 
