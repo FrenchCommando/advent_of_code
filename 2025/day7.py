@@ -1,6 +1,21 @@
 from utils.printing import display
 
-example = """SAMPLE"""
+example = """.......S.......
+...............
+.......^.......
+...............
+......^.^......
+...............
+.....^.^.^.....
+...............
+....^.^...^....
+...............
+...^.^...^.^...
+...............
+..^...^.....^..
+...............
+.^.^.^.^.^...^.
+..............."""
 
 
 with open("day7.txt", "r") as f:
@@ -12,17 +27,20 @@ def parsed(l):
     return [ll.strip() for ll in l]
 
 
-def get_best_result(stuff):
-    return f"{stuff}100"
-
-
 def get_count(p_internal):
-    contents = []
-    for stuff in p_internal:
-        best_result = get_best_result(stuff=stuff)
-        contents.append(best_result)
-        print(stuff, best_result)
-    count = sum(map(int, contents))
+    count = 0
+    s_init = p_internal[0].index("S")
+    positions = {s_init}
+    for line in p_internal[1:]:
+        if "^" in line:
+            for i, c in enumerate(line):
+                if c == "^":
+                    if i in positions:
+                        count += 1
+                        positions.remove(i)
+                        positions.add(i - 1)
+                        positions.add(i + 1)
+    print(positions, len(positions))
     print(count)
 
 
@@ -33,21 +51,26 @@ get_count(p_internal=parsed(l=s))
 print()
 get_count(p_internal=p)
 print()
-raise ValueError()
-
-
-def get_best_result2(stuff):
-    return f"{stuff}200"
 
 
 def get_count2(p_internal):
-    contents = []
-    for stuff in p_internal:
-        best_result = get_best_result2(stuff=stuff)
-        contents.append(best_result)
-        print(stuff, best_result)
-    count = sum(map(int, contents))
-    print(count)
+    s_init = p_internal[0].index("S")
+    positions = {s_init: 1}
+    for line in p_internal[1:]:
+        if "^" in line:
+            for i, c in enumerate(line):
+                if c == "^":
+                    if i in positions:
+                        t = positions[i]
+                        del positions[i]
+                        if i + 1 not in positions:
+                            positions[i + 1] = 0
+                        if i - 1 not in positions:
+                            positions[i - 1] = 0
+                        positions[i - 1] += t
+                        positions[i + 1] += t
+    print(positions, len(positions))
+    print(sum(positions.values()))
 
 
 get_count2(p_internal=parsed(l=s))
