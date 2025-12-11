@@ -73,22 +73,22 @@ print()
 
 def candidates_q(t, buttons, l_set_bits):
     non_zeros = [i for i, tt in enumerate(t) if tt != 0]
-    # optimal_non_zero = min(non_zeros, key=lambda i: l_set_bits[i])
+    optimal_non_zero = min(non_zeros, key=lambda i: l_set_bits[i])
     # optimal_non_zero = min(non_zeros, key=lambda i: 100 * l_set_bits[i] + t[i])
     # optimal_non_zero = min(non_zeros, key=lambda i: (l_set_bits[i], t[i]))
-    optimal_non_zero = min(non_zeros, key=lambda i: t[i])
+    # optimal_non_zero = min(non_zeros, key=lambda i: t[i])
     # optimal_non_zero = max(non_zeros, key=lambda i: t[i])
-    # optimal_non_zero = non_zeros[max(0, min(len(non_zeros) - 1, 3))]
+    # optimal_non_zero = non_zeros[max(0, min(len(non_zeros) - 1, 2))]
 
     qq = queue.LifoQueue()
+    qq.put((0, t))
 
     clean_bit_to_set = [u for u in buttons if all(z in non_zeros for z in u) and (optimal_non_zero in u)]
     if len(clean_bit_to_set) == 0:
-        return qq
-    if len(non_zeros) > len(t) - 2:
-        print("\t\t\t", optimal_non_zero, non_zeros, t, clean_bit_to_set)
+        return qq, optimal_non_zero
+    # if len(non_zeros) > len(t) - 2:
+    #     print("\t\t\t", optimal_non_zero, non_zeros, t, clean_bit_to_set)
 
-    qq.put((0, t))
     i_last = len(clean_bit_to_set) - 1
     for i_button, button in enumerate(clean_bit_to_set):
         # print(button, qq.qsize(), len(clean_bit_to_set))
@@ -112,7 +112,7 @@ def candidates_q(t, buttons, l_set_bits):
                 qqq.put((c + number, t_t_b))
                 number += 1
         qq = qqq
-    return qq
+    return qq, optimal_non_zero
 
 
 def get_best_result2(stuff):
@@ -125,47 +125,96 @@ def get_best_result2(stuff):
         for b in u:
             l_set_bits[b] = l_set_bits[b] + 1
 
-    best = dict()
+    best_right = dict()
     best_solution = None
-    q = queue.PriorityQueue()
-    q.put((0, (0, joltage)))
-    while not q.empty():
-        # print(q.qsize(), len(best), end="\t")
-        heuristic, (c, t) = q.get()
-        if t not in best:
-            best[t] = c
-        elif c >= best[t]:
+    qq, optimal_non_zero = candidates_q(t=joltage, buttons=buttons, l_set_bits=l_set_bits)
+    while not qq.empty():
+        c_b, t_t_b = qq.get()
+        if t_t_b in best_right and best_right[t_t_b] <= c_b:
             continue
-        best[t] = c
 
-        qq = candidates_q(t=t, buttons=buttons, l_set_bits=l_set_bits)
+        if all(u == 0 for u in t_t_b):
+            if best_solution is None:
+                best_solution = c_b
+            best_solution = min(c_b, best_solution)
+            # print("Best", best_solution)
+            continue
+        best_right[t_t_b] = c_b
 
-        pre_q_count = q.qsize()
-        pre_qq_count = qq.qsize()
-        child_count = 0
+    other_buttons = sorted([b for b in buttons if optimal_non_zero not in b], key=len, reverse=False)
+    print(f"{other_buttons=}")
 
-        non_zeros = [i for i, tt in enumerate(t) if tt != 0]  # for heuristics
+    best_left = {tuple(0 for _ in joltage): 0}
 
-        while not qq.empty():
-            c_b_0, ttt = qq.get()
-            c_b = c_b_0 + c
-            t_t_b = tuple(ttt)
-            if t_t_b in best and best[t_t_b] <= c_b:
-                continue
+    for b in other_buttons:
+        print(f"\t{b=} - {len(best_left)=} - {len(best_right)=}")
+        if len(best_left) < len(best_right):
+            for bb in list(best_left.keys()):
+                cc = best_left[bb]
+                if best_solution is not None:
+                    if cc >= best_solution:
+                        continue
 
-            if all(u == 0 for u in t_t_b):
-                if best_solution is None:
-                    best_solution = c_b
-                best_solution = min(c_b, best_solution)
-                # print("Best", best_solution)
-                continue
-            q.put((len(non_zeros) * 1e8 + min(t_t_b) + max(t_t_b), (c_b, t_t_b)))
-            child_count += 1
-        if child_count > 1:
-            if len(non_zeros) > len(t) - 2:
-                print("\t", t, non_zeros, "\t", pre_q_count, pre_qq_count, "\t", q.qsize(), len(best), "children", child_count)
-            # else:
-            #     print("\t\t", q.qsize(), end="\t")
+                number = 1
+                while True:
+                    bad = False
+                    t_b = list(bb)
+                    for i in b:
+                        t_b[i] = t_b[i] + number
+                        if t_b[i] > joltage[i]:
+                            bad = True
+                            break
+                    if bad:
+                        break
+                    t_t_b = tuple(t_b)
+                    if t_t_b not in best_left:
+                        best_left[t_t_b] = cc + number
+                    best_left[t_t_b] = min(cc + number, best_left[t_t_b])
+
+                    if t_t_b in best_right:
+                        c_left = best_left[t_t_b]
+                        c_right = best_right[t_t_b]
+                        c_full = c_right + c_left
+                        if best_solution is None:
+                            best_solution = c_full
+                        best_solution = min(c_full, best_solution)
+                        print("Best", best_solution)
+
+                    number += 1
+        else:
+            for bb in list(best_right.keys()):
+                cc = best_right[bb]
+                if best_solution is not None:
+                    if cc >= best_solution:
+                        continue
+
+                number = 1
+                while True:
+                    bad = False
+                    t_b = list(bb)
+                    for i in b:
+                        t_b[i] = t_b[i] - number
+                        if t_b[i] < 0:
+                            bad = True
+                            break
+                    if bad:
+                        break
+                    t_t_b = tuple(t_b)
+
+                    if t_t_b not in best_right:
+                        best_right[t_t_b] = cc + number
+                    best_right[t_t_b] = min(cc + number, best_right[t_t_b])
+
+                    if t_t_b in best_left:
+                        c_left = best_left[t_t_b]
+                        c_right = best_right[t_t_b]
+                        c_full = c_right + c_left
+                        if best_solution is None:
+                            best_solution = c_full
+                        best_solution = min(c_full, best_solution)
+                        print("Best", best_solution)
+
+                    number += 1
 
     return best_solution
 
@@ -184,8 +233,8 @@ def get_count2(p_internal, n_workers):
     print(count)
 
 
-# get_count2(p_internal=[parsed(l=s)[1]], n_workers=1)
-get_count2(p_internal=[parsed(l=s)[4]], n_workers=1)
+get_count2(p_internal=[parsed(l=s)[100]], n_workers=1)
+# get_count2(p_internal=[parsed(l=s)[4]], n_workers=1)
 print()
 # get_count2(p_internal=parsed(l=s), n_workers=30)
 # print()
