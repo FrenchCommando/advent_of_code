@@ -1,5 +1,6 @@
 import itertools
 import queue
+import array as arr
 from functools import reduce
 
 from utils.printing import display
@@ -77,14 +78,12 @@ def candidates_q(t, buttons_internal, l_joltage, do_print):
 
     non_zeros = [i for i, tt in enumerate(t) if tt != 0]
     optimal_non_zero = min(non_zeros, key=lambda i: l_set_bits[i])
-    # optimal_non_zero = min(non_zeros, key=lambda i: 100 * l_set_bits[i] + t[i])
-    # optimal_non_zero = min(non_zeros, key=lambda i: (l_set_bits[i], t[i]))
-    # optimal_non_zero = min(non_zeros, key=lambda i: t[i])
-    # optimal_non_zero = max(non_zeros, key=lambda i: t[i])
-    # optimal_non_zero = non_zeros[max(0, min(len(non_zeros) - 1, 1))]  # just manually change the initial guess
+    # optimal_non_zero = non_zeros[max(0, min(len(non_zeros) - 1, 100))]  # just manually change the initial guess
+
+    b_t = ints_to_short(i=t)
 
     qq = queue.LifoQueue()
-    qq.put((0, t))
+    qq.put((0, b_t))
 
     clean_bit_to_set = sorted([u for u in buttons_internal if all(z in non_zeros for z in u) and (optimal_non_zero in u)], key=len, reverse=True)
     # print(len(clean_bit_to_set), f"{clean_bit_to_set=}", f"{optimal_non_zero}")
@@ -92,10 +91,10 @@ def candidates_q(t, buttons_internal, l_joltage, do_print):
         return qq, optimal_non_zero
     # if len(non_zeros) > len(t) - 2:
     if do_print:
-        print("\t\t\t", optimal_non_zero, non_zeros, t, clean_bit_to_set)
+        print("\t\t\t", optimal_non_zero, non_zeros, t, b_t, clean_bit_to_set)
 
     i_last = len(clean_bit_to_set) - 1
-    d_qq = {t: 0}
+    d_qq = {b_t: 0}
 
     for i_button, button in enumerate(clean_bit_to_set):
         if do_print:
@@ -104,18 +103,17 @@ def candidates_q(t, buttons_internal, l_joltage, do_print):
         for tt, c in d_qq.items():
             number = 0
             if i_button == i_last:
-                number = tt[optimal_non_zero]
+                number = short_to_ints(i=tt)[optimal_non_zero]
             while True:
                 bad = False
-                t_b = list(tt)
                 for i in button:
-                    t_b[i] = t_b[i] - number
-                    if t_b[i] < 0:
+                    if short_to_int(i=tt, k=i) - number < 0:
                         bad = True
                         break
                 if bad:
                     break
-                t_t_b = tuple(t_b)
+                ss = short_to_ints(i=tt)
+                t_t_b = ints_to_short(i=(sss - number * (i in button) for i, sss in enumerate(ss)))
                 d_qqq[t_t_b] = min(d_qqq.get(t_t_b, c + number), c + number)
                 number += 1
         d_qq = dict()
@@ -136,7 +134,7 @@ def candidates_q_left(low_bounds_right, high_bounds_right, buttons_internal, l_j
             l_set_bits[b] = l_set_bits[b] + 1
 
     qq = queue.LifoQueue()
-    qq.put((0, tuple(0 for _ in range(l_joltage))))
+    qq.put((0, ints_to_short(i=(0 for _ in range(l_joltage)))))
 
     non_zeros = [i for i, (ltt, rtt) in enumerate(zip(low_bounds_right, high_bounds_right)) if ltt == rtt and ltt != 0]
     if len(non_zeros) == 0:
@@ -160,7 +158,7 @@ def candidates_q_left(low_bounds_right, high_bounds_right, buttons_internal, l_j
         print(len(non_zeros), f"{non_zeros=}", f"{optimal_non_zero}", f"{clean_bit_to_set=}")
 
     i_last = len(clean_bit_to_set) - 1
-    d_qq = {tuple(0 for _ in range(l_joltage)): 0}
+    d_qq = {ints_to_short(i=(0 for _ in range(l_joltage))): 0}
 
     for i_button, button in enumerate(clean_bit_to_set):
         if do_print:
@@ -169,18 +167,17 @@ def candidates_q_left(low_bounds_right, high_bounds_right, buttons_internal, l_j
         for tt, c in d_qq.items():
             number = 0
             if i_button == i_last:
-                number = high_bounds_right[optimal_non_zero] - tt[optimal_non_zero]
+                number = high_bounds_right[optimal_non_zero] - short_to_ints(i=tt)[optimal_non_zero]
             while True:
                 bad = False
-                t_b = list(tt)
                 for i in button:
-                    t_b[i] = t_b[i] + number
-                    if t_b[i] > high_bounds_right[i]:
+                    if short_to_int(i=tt, k=i) + number > high_bounds_right[i]:
                         bad = True
                         break
                 if bad:
                     break
-                t_t_b = tuple(t_b)
+                ss = short_to_ints(i=tt)
+                t_t_b = ints_to_short(i=(sss + number * (i in button) for i, sss in enumerate(ss)))
                 d_qqq[t_t_b] = min(d_qqq.get(t_t_b, c + number), c + number)
                 number += 1
         d_qq = dict()
@@ -194,122 +191,9 @@ def candidates_q_left(low_bounds_right, high_bounds_right, buttons_internal, l_j
     return qq, optimal_non_zero
 
 
-def get_best_result2(stuff, do_print=False):
-    lights, buttons, joltage = line_to_data(stuff=stuff)
-    if do_print:
-        print(buttons, joltage)
-
-    l_joltage = len(joltage)
-
-    best_right = dict()
-    best_solution = sum(joltage) // min(len(b) for b in buttons)
-    # best_solution = 305
-    if do_print:
-        print("Init", best_solution)
-    qq, optimal_non_zero = candidates_q(t=joltage, buttons_internal=buttons, l_joltage=l_joltage, do_print=do_print)
-    while not qq.empty():
-        c_b, t_t_b = qq.get()
-        if t_t_b in best_right and best_right[t_t_b] <= c_b:
-            continue
-
-        if all(u == 0 for u in t_t_b):
-            best_solution = min(c_b, best_solution)
-            if do_print:
-                print("Best", best_solution)
-            continue
-        best_right[t_t_b] = c_b
-
-    low_bounds_right = [min(b[k] for b in best_right) for k in range(l_joltage)]
-    high_bounds_right = [max(b[k] for b in best_right) for k in range(l_joltage)]
-    other_buttons_left = sorted([b for b in buttons if optimal_non_zero not in b], key=len, reverse=False)
-    if do_print:
-        print(f"{low_bounds_right=}")
-        print(f"{high_bounds_right=}")
-        print(f"{joltage=}")
-        print(f"{other_buttons_left=}")
-
-    best_left = dict()
-    qq_left, optimal_non_zero_left = candidates_q_left(
-        low_bounds_right=low_bounds_right, high_bounds_right=high_bounds_right, buttons_internal=other_buttons_left, l_joltage=l_joltage,
-        do_print=do_print,
-    )
-    while not qq_left.empty():
-        c_b, t_t_b = qq_left.get()
-        if t_t_b in best_left and best_left[t_t_b] <= c_b:
-            continue
-
-        if t_t_b in best_right:
-            c_full = c_b + best_right[t_t_b]
-            best_solution = min(c_full, best_solution)
-            if do_print:
-                print("Best", best_solution)
-            continue
-        best_left[t_t_b] = c_b
-
-    low_bounds_left = [min((b[k] for b in best_left), default=0) for k in range(l_joltage)]
-    high_bounds_left = [max((b[k] for b in best_left), default=joltage[k]) for k in range(l_joltage)]
-    # other_buttons = sorted([b for b in other_buttons_left if optimal_non_zero_left not in b], key=len, reverse=False)
-    other_buttons = sorted([b for b in other_buttons_left if optimal_non_zero_left not in b], key=len, reverse=True)
-
-    c_min_left = min(best_left.values(), default=0)
-    c_min_right = min(best_right.values(), default=0)
-
-    if do_print:
-        print(f"{low_bounds_right=}")
-        print(f"{high_bounds_right=}")
-        print(f"{low_bounds_left=}")
-        print(f"{high_bounds_left=}")
-        print(f"{joltage=}")
-
-        print(f"{other_buttons=}")
-
-        print(f"{c_min_left=}|{c_min_right=}")
-
-    index_from_right = [i for i, (low, high) in enumerate(zip(low_bounds_right, high_bounds_right)) if low == 0 and high == 0]
-    index_from_left = [i for i, (low, high, low_r, high_r) in enumerate(zip(low_bounds_left, high_bounds_left, low_bounds_right, high_bounds_right)) if low == high and low_r == high_r and low == low_r]
-    index_to_remove = sorted((set(index_from_left) | set(index_from_right)))
-    if do_print:
-        print(f"{index_from_right=}|{index_from_left=}|{index_to_remove=}")
-    # convert best_left, best_right, other_buttons
-    # low_bounds_left, high_bounds_right
-    def convert_button(button):
-        out = []
-        for b in button:
-            if b in index_to_remove:
-                continue
-            n_decrement = 0
-            for i in index_to_remove:
-                if i < b:
-                    n_decrement += 1
-            out.append(b - n_decrement)
-        return tuple(out)
-    def convert_tuple(weights):
-        out = []
-        for i, w in enumerate(weights):
-            if i in index_to_remove:
-                continue
-            out.append(w)
-        return tuple(out)
-    if do_print:
-        print(f"{other_buttons=}")
-    other_buttons = [convert_button(b) for b in other_buttons]
-    if do_print:
-        print(f"{other_buttons=}")
-    l_joltage = l_joltage - len(index_to_remove)
-    c_best_left = dict()
-    for b, c in best_left.items():
-        c_best_left[convert_tuple(weights=b)] = c
-    best_left = c_best_left
-    c_best_right = dict()
-    for b, c in best_right.items():
-        c_best_right[convert_tuple(weights=b)] = c
-    best_right = c_best_right
-    low_bounds_left = [min((b[k] for b in best_left), default=0) for k in range(l_joltage)]
-    high_bounds_right = [max((b[k] for b in best_right), default=0) for k in range(l_joltage)]
-    if do_print:
-        print(f"{low_bounds_left=}")
-        print(f"{high_bounds_right=}")
-
+def find_best_solution(
+        other_buttons, best_left, best_right, best_solution, c_min_left, c_min_right, low_bounds_left, high_bounds_right, do_print,
+):
     i_last = len(other_buttons) - 1
     for ib, b in enumerate(other_buttons):
         if do_print:
@@ -325,16 +209,14 @@ def get_best_result2(stuff, do_print=False):
                 number = 1
                 while number < max_number:
                     bad = False
-                    t_b = list(bb)
                     for i in b:
-                        t_b[i] = t_b[i] + number
-                        if t_b[i] > high_bounds_right[i]:
+                        if short_to_int(i=bb, k=i) + number > high_bounds_right[i]:
                             bad = True
                             break
                     if bad:
                         break
-                    t_t_b = tuple(t_b)
-
+                    ss = short_to_ints(i=bb)
+                    t_t_b = ints_to_short(i=(sss + number * (i in b) for i, sss in enumerate(ss)))
                     if ib == i_last:
                         if t_t_b in best_right:
                             c_left = cc + number
@@ -366,15 +248,16 @@ def get_best_result2(stuff, do_print=False):
                 number = 1
                 while number < max_number:
                     bad = False
-                    t_b = list(bb)
                     for i in b:
-                        t_b[i] = t_b[i] - number
-                        if t_b[i] < low_bounds_left[i]:
+                        if short_to_int(i=bb, k=i) - number < low_bounds_left[i]:
                             bad = True
                             break
                     if bad:
                         break
-                    t_t_b = tuple(t_b)
+                    # t_t_b = tuple(u - number for u in bb)
+                    ss = short_to_ints(i=bb)
+                    # print(bb, ss, number)
+                    t_t_b = ints_to_short(i=(sss - number * (i in b) for i, sss in enumerate(ss)))
                     if ib == i_last:
                         if t_t_b in best_left:
                             c_left = best_left[t_t_b]
@@ -398,6 +281,154 @@ def get_best_result2(stuff, do_print=False):
 
         if do_print:
             print(f"\t{b=} - {len(best_left)=} - {len(best_right)=} - Post")
+
+    return best_solution
+
+
+def ints_to_short(i):
+    return arr.array('H', i).tobytes()
+
+
+def short_to_int(i, k):
+    a = arr.array('H', [])
+    a.frombytes(i)
+    # print(a, a[k], k)
+    return a[k]
+
+
+def short_to_ints(i):
+    a = arr.array('H', [])
+    a.frombytes(i)
+    return tuple(a)
+
+
+def get_best_result2(stuff, do_print=False):
+    lights, buttons, joltage = line_to_data(stuff=stuff)
+    if do_print:
+        print(buttons, joltage)
+
+    l_joltage = len(joltage)
+
+    best_right = dict()
+    best_solution = sum(joltage) // min(len(b) for b in buttons)
+    # best_solution = 305
+    if do_print:
+        print("Init", best_solution)
+    qq, optimal_non_zero = candidates_q(t=joltage, buttons_internal=buttons, l_joltage=l_joltage, do_print=do_print)
+    while not qq.empty():
+        c_b, t_t_b = qq.get()
+        if t_t_b in best_right and best_right[t_t_b] <= c_b:
+            continue
+
+        if all(u == 0 for u in short_to_ints(i=t_t_b)):
+            best_solution = min(c_b, best_solution)
+            if do_print:
+                print("Best", best_solution)
+            continue
+        best_right[t_t_b] = c_b
+
+    low_bounds_right = [min(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
+    high_bounds_right = [max(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
+
+    other_buttons_left = sorted([b for b in buttons if optimal_non_zero not in b], key=len, reverse=False)
+    if do_print:
+        print(f"{low_bounds_right=}")
+        print(f"{high_bounds_right=}")
+        print(f"{joltage=}")
+        print(f"{other_buttons_left=}")
+
+    best_left = dict()
+    qq_left, optimal_non_zero_left = candidates_q_left(
+        low_bounds_right=low_bounds_right, high_bounds_right=high_bounds_right, buttons_internal=other_buttons_left, l_joltage=l_joltage,
+        do_print=do_print,
+    )
+    while not qq_left.empty():
+        c_b, t_t_b = qq_left.get()
+        if t_t_b in best_left and best_left[t_t_b] <= c_b:
+            continue
+
+        if t_t_b in best_right:
+            c_full = c_b + best_right[t_t_b]
+            best_solution = min(c_full, best_solution)
+            if do_print:
+                print("Best", best_solution)
+            continue
+        best_left[t_t_b] = c_b
+
+    low_bounds_left = [min((short_to_int(i=b, k=k) for b in best_left), default=0) for k in range(l_joltage)]
+    high_bounds_left = [max((short_to_int(i=b, k=k) for b in best_left), default=joltage[k]) for k in range(l_joltage)]
+    # other_buttons = sorted([b for b in other_buttons_left if optimal_non_zero_left not in b], key=len, reverse=False)
+    other_buttons = sorted([b for b in other_buttons_left if optimal_non_zero_left not in b], key=len, reverse=True)
+
+    c_min_left = min(best_left.values(), default=0)
+    c_min_right = min(best_right.values(), default=0)
+
+    if do_print:
+        print(f"{low_bounds_right=}")
+        print(f"{high_bounds_right=}")
+        print(f"{low_bounds_left=}")
+        print(f"{high_bounds_left=}")
+        print(f"{joltage=}")
+
+        print(f"{other_buttons=}")
+
+        print(f"{c_min_left=}|{c_min_right=}")
+
+    index_from_right = [i for i, (low, high) in enumerate(zip(low_bounds_right, high_bounds_right)) if low == 0 and high == 0]
+    index_from_left = [i for i, (low, high, low_r, high_r) in enumerate(zip(low_bounds_left, high_bounds_left, low_bounds_right, high_bounds_right)) if low == high and low_r == high_r and low == low_r]
+    index_to_remove = sorted((set(index_from_left) | set(index_from_right)))
+    if do_print:
+        print(f"{index_from_right=}|{index_from_left=}|{index_to_remove=}")
+    # convert best_left, best_right, other_buttons
+    #     # low_bounds_left, high_bounds_right
+    def convert_button(button):
+        out = []
+        for b in button:
+            if b in index_to_remove:
+                continue
+            n_decrement = 0
+            for i in index_to_remove:
+                if i < b:
+                    n_decrement += 1
+            out.append(b - n_decrement)
+        return tuple(out)
+    def convert_tuple(weights):
+        bbb = short_to_ints(i=weights)
+        out = []
+        for i, w in enumerate(bbb):
+            if i in index_to_remove:
+                continue
+            out.append(w)
+        # return tuple(out)
+        rrr = ints_to_short(i=out)
+        # print(f"{rrr=}")
+        return rrr
+    if do_print:
+        print(f"{other_buttons=}")
+    other_buttons = [convert_button(b) for b in other_buttons]
+    if do_print:
+        print(f"ReIndexed|{other_buttons=}")
+    l_joltage = l_joltage - len(index_to_remove)
+    c_best_left = dict()
+    for b, c in best_left.items():
+        c_best_left[convert_tuple(weights=b)] = c
+    best_left = c_best_left
+    c_best_right = dict()
+    for b, c in best_right.items():
+        c_best_right[convert_tuple(weights=b)] = c
+    best_right = c_best_right
+    low_bounds_left = [min((short_to_int(i=b, k=k) for b in best_left), default=0) for k in range(l_joltage)]
+    high_bounds_right = [max((short_to_int(i=b, k=k) for b in best_right), default=0) for k in range(l_joltage)]
+    if do_print:
+        print(f"ReIndexed|{low_bounds_left=}")
+        print(f"ReIndexed|{high_bounds_right=}")
+
+    best_solution = find_best_solution(
+        other_buttons=other_buttons, best_left=best_left, best_right=best_right,
+        best_solution=best_solution, c_min_left=c_min_left, c_min_right=c_min_right,
+        low_bounds_left=low_bounds_left, high_bounds_right=high_bounds_right, do_print=do_print,
+    )
+
     return best_solution
 
 
@@ -412,26 +443,27 @@ def get_count2(p_internal, do_print=False):
     for i, stuff in enumerate(p_internal):
         # manually changing heuristics and saving results
         precomputed = {
-            4: 119,
-            29: 229,
-            37: 282,
+            4: 119,  # just takes a long time
+            # 29: 229,
+            # 37: 282,
             38: 249,
-            48: 86,
-            51: 218,
-            59: 120,
-            69: 117,
+            # 48: 86,
+            # 51: 218,
+            # 59: 120,
+            # 69: 117,
             77: 283,  # init guess 3
-            82: 231,
-            105: 117,
-            115: 146,
-            117: 292,  # guessed from current upper bound
-            127: 266,
-            140: 98,
-            150: 106,
-            158: 123,
-            174: 273,
+            # 82: 231,
+            105: 117,  # init guess 8
+            # 115: 146,
+            117: 292,  # just takes a very very long time
+            127: 266,  # just takes a long time
+            # 140: 98,
+            # 150: 106,
+            # 158: 123,
+            # 174: 273,
         }
         skipped = [
+            # *list(range(115))
         ]
         if i in skipped:
             print("Skipped", i, stuff)
@@ -447,7 +479,5 @@ def get_count2(p_internal, do_print=False):
 
 
 # get_count2(p_internal=[parsed(l=s)[117]], do_print=True)
-# get_count2(p_internal=[parsed(l=s)[4]], do_print=True)
-# get_count2(p_internal=[parsed(l=s)[29]], do_print=True)
 get_count2(p_internal=parsed(l=s))
-get_count2(p_internal=p)
+# get_count2(p_internal=p)
