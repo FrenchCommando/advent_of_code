@@ -149,14 +149,13 @@ def candidates_q(t, buttons_internal, l_joltage, do_print):
         for k, v in d_qqq.items():
             d_qq[k] = v
     if do_print:
-        print(f"{qq.qsize()=}")
+        print(f"{len(d_qq)=}")
     return d_qq, optimal_non_zero
 
 
 def find_best_solution(
-        other_buttons, best_right, best_solution, do_print, l_joltage,
+        other_buttons, best_left, best_right, best_solution, do_print, l_joltage, loop_info,
 ):
-    best_left = {ints_to_short(i=(0 for _ in range(l_joltage))): 0}
     while len(other_buttons) > 0 and len(best_left) > 0 and len(best_right) > 0:
         low_bounds_right = [min(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
         high_bounds_right = [max(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
@@ -171,7 +170,7 @@ def find_best_solution(
         index_to_remove = sorted((set(index_from_left) | set(index_from_right)))
         if do_print:
             print(f"{index_from_right=}|{index_from_left=}|{index_to_remove=}")
-        if index_to_remove:
+        if index_to_remove and loop_info == "":
             def convert_button(button):
                 out = []
                 for b in button:
@@ -235,6 +234,8 @@ def find_best_solution(
             cc = best_right[bb]
             if cc + c_min_left >= best_solution:
                 del best_right[bb]
+        if not best_left or not best_right:
+            return best_solution
         c_min_left = min(best_left.values())
         c_min_right = min(best_right.values())
         low_bounds_left_b = [min((short_to_int(i=bbb, k=bb) for bbb in best_left)) for bb in b]
@@ -244,39 +245,73 @@ def find_best_solution(
                   f"{b=} - {len(best_left)=} - {len(best_right)=}|{c_min_left=}|{c_min_right=}|"
                   f"{low_bounds_left_b=}|{high_bounds_right_b=}")
 
-        mask_left = set()
-        mask_right = set()
+        mask_left = dict()
+        mask_right = dict()
         for bb in best_left:
             b_int = short_to_ints(i=bb)
             t_b = tuple(v for i, v in enumerate(b_int) if i not in remaining_buttons)
-            mask_left.add(t_b)
+            if t_b not in mask_left:
+                mask_left[t_b] = dict()
+            mask_left[t_b][bb] = best_left[bb]
         for bb in best_right:
             b_int = short_to_ints(i=bb)
             t_b = tuple(v for i, v in enumerate(b_int) if i not in remaining_buttons)
-            mask_right.add(t_b)
-        mask_both = set(u for u in mask_left & mask_right)
+            if t_b not in mask_right:
+                mask_right[t_b] = dict()
+            mask_right[t_b][bb] = best_right[bb]
+        mask_both = set(u for u in mask_left.keys() & mask_right.keys())
 
         if do_print:
             print(f"\t\tintermediate for mask {len(mask_left)=} - {len(mask_right)=} - {len(mask_both)=} | \t{len(best_left)=}, {len(best_right)=}")
 
-        # this step is huge, so doesn't really need to be optimal in the following steps
-        lll_left = []
-        for bb in best_left:
-            b_int = short_to_ints(i=bb)
-            t_b = tuple(v for i, v in enumerate(b_int) if i not in remaining_buttons)
-            if t_b in mask_both:
-                lll_left.append(bb)
-        best_left = {left: best_left[left] for left in lll_left}
-        lll_right = []
-        for bb in best_right:
-            b_int = short_to_ints(i=bb)
-            t_b = tuple(v for i, v in enumerate(b_int) if i not in remaining_buttons)
-            if t_b in mask_both:
-                lll_right.append(bb)
-        best_right = {right: best_right[right] for right in lll_right}
+        if len(mask_both) > 1:
+            l_mask = len(mask_both)
+            q_mask = queue.Queue()
+            for i_mask, bb_mask in enumerate(mask_both):
+                best_left_temp = mask_left[bb_mask]
+                best_right_temp = mask_right[bb_mask]
+                q_mask.put((i_mask, best_left_temp, best_right_temp))
+                del mask_left[bb_mask]
+                del mask_right[bb_mask]
+            del mask_both
+            del mask_left
+            del mask_right
+
+            while not q_mask.empty():
+                i_mask, best_left_temp, best_right_temp = q_mask.get()
+                other_buttons_temp = [b]
+                for bbbb in other_buttons:
+                    other_buttons_temp.append(bbbb)
+
+                loop_info_loop = f"{loop_info}|{i_mask=}/{l_mask=}"
+
+                if do_print:
+                    print(f"\t\tSub-branch|{i_mask} | {len(best_left_temp)=}, {len(best_right_temp)=} | {other_buttons_temp=}")
+                    print(f"\t\t\t{loop_info_loop}")
+                # print(bb_mask, best_left_temp, best_left, other_buttons_temp, best_right_temp)
+                best_solution_temp = find_best_solution(
+                    other_buttons_temp, best_left_temp, best_right_temp, best_solution,
+                    do_print=False,
+                    l_joltage=l_joltage,
+                    loop_info=loop_info_loop,
+                )
+                if best_solution_temp < best_solution:
+                    if do_print:
+                        print(f"\t\tBest Found {best_solution_temp=} {best_solution=}| Sub-branch|{i_mask} | {len(best_left_temp)=}, {len(best_right_temp)=} | {other_buttons_temp=}")
+                    best_solution = best_solution_temp
+
+                if do_print:
+                    print(f"\t\tEnd - Sub-branch|{i_mask} | {len(best_left_temp)=}, {len(best_right_temp)=}")
+            return best_solution
+
+        if not mask_both:
+            return best_solution
+        one_mask = next(iter(mask_both))
+        best_left = mask_left[one_mask]
+        best_right = mask_right[one_mask]
 
         if do_print:
-            print(f"\t\t{len(mask_left)=} - {len(mask_right)=} - {len(mask_both)=} | \t{len(lll_left)=}, {len(lll_right)=}")
+            print(f"\t\t{len(mask_left)=} - {len(mask_right)=} - {len(mask_both)=} | \t{len(best_left)=}, {len(best_right)=}")
 
         if is_last:
             # reduce the size of best_left, best_right
@@ -418,11 +453,13 @@ def get_best_result2(stuff, do_print=False):
         return best_solution
 
     other_buttons = sorted([b for b in buttons if optimal_non_zero not in b], key=len, reverse=True)
-
+    best_left = {ints_to_short(i=(0 for _ in range(l_joltage))): 0}
     best_solution = find_best_solution(
-        other_buttons=other_buttons, best_right=best_right,
+        other_buttons=other_buttons,
+        best_left=best_left, best_right=best_right,
         best_solution=best_solution, do_print=do_print,
         l_joltage=l_joltage,
+        loop_info="",
     )
 
     return best_solution
@@ -439,24 +476,24 @@ def get_count2(p_internal, do_print=False):
     for i, stuff in enumerate(p_internal):
         # manually changing heuristics and saving results
         precomputed = {
-            4: 119,  # just takes a long time
-            29: 229,
-            37: 282,
-            38: 249,
-            48: 86,
-            51: 218,
-            59: 120,
-            69: 117,
-            77: 283,  # init guess 3
-            82: 231,
-            105: 117,  # init guess 8
-            115: 146,
-            117: 292,  # just takes a very very long time - and 30GB of RAM
-            127: 266,  # just takes a long time
-            140: 98,
-            150: 106,
-            158: 123,
-            174: 273,
+            # 4: 119,  # just takes a long time
+            # 29: 229,
+            # 37: 282,
+            # 38: 249,
+            # 48: 86,
+            # 51: 218,
+            # 59: 120,
+            # 69: 117,
+            # 77: 283,  # init guess 3
+            # 82: 231,
+            # 105: 117,  # init guess 8
+            # 115: 146,
+            # 117: 292,  # just takes a very very long time - and 30GB of RAM
+            # 127: 266,  # just takes a long time
+            # 140: 98,
+            # 150: 106,
+            # 158: 123,
+            # 174: 273,
         }
         skipped = [
             # *list(range(115))
@@ -478,4 +515,5 @@ def get_count2(p_internal, do_print=False):
 # get_count2(p_internal=[parsed(l=s)[117]], do_print=True)
 # get_count2(p_internal=[parsed(l=s)[150]], do_print=True)
 get_count2(p_internal=parsed(l=s))
+# get_count2(p_internal=p, do_print=True)
 # get_count2(p_internal=p)
