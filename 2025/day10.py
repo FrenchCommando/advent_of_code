@@ -124,30 +124,27 @@ def candidates_q(t, buttons_internal, l_joltage, do_print):
 
     i_last = len(clean_bit_to_set) - 1
 
-
     for i_button, button in enumerate(clean_bit_to_set):
         if do_print:
             print(button, len(d_qq), len(clean_bit_to_set))
-        d_qqq = dict()
-        for tt, c in d_qq.items():
-            number = 0
+        local_b = [(i in button) for i in range(l_joltage)]
+        for tt in list(d_qq):
+            number = 1
             if i_button == i_last:
                 number = short_to_ints(i=tt)[optimal_non_zero]
-            while True:
+            c = d_qq[tt]
+            while number > 0:
                 bad = False
-                for i in button:
-                    if short_to_int(i=tt, k=i) - number < 0:
+                ss = short_to_ints(i=tt)
+                for i in range(l_joltage):
+                    if ss[i] - number * local_b[i] < 0:
                         bad = True
                         break
                 if bad:
                     break
-                ss = short_to_ints(i=tt)
-                t_t_b = ints_to_short(i=(sss - number * (i in button) for i, sss in enumerate(ss)))
-                d_qqq[t_t_b] = min(d_qqq.get(t_t_b, c + number), c + number)
+                t_t_b = ints_to_short(i=(ss[i] - number * local_b[i] for i in range(l_joltage)))
+                d_qq[t_t_b] = min(d_qq.get(t_t_b, c + number), c + number)
                 number += 1
-        d_qq = dict()
-        for k, v in d_qqq.items():
-            d_qq[k] = v
     if do_print:
         print(f"{len(d_qq)=}")
     return d_qq, optimal_non_zero
@@ -345,22 +342,25 @@ def find_best_solution(
             if do_print:
                 print(f"\tafter pruning last loop: {len(best_left)=} - {len(best_right)=}")
 
-        if len(best_left) < len(best_right):
-            for bb in list(best_left.keys()):
+        local_b = [(i in b) for i in range(l_joltage)]
+        local_high_bounds_right_b = list(high_bounds_right)
+        local_low_bounds_left_b = list(low_bounds_left)
+        if len(best_right) > 10:
+            for bb in list(best_left):
                 cc = best_left[bb]
                 max_number = best_solution - (cc + c_min_right)
 
                 number = 1
                 while number < max_number:
                     bad = False
-                    for bi, i in enumerate(b):
-                        if short_to_int(i=bb, k=i) + number > high_bounds_right_b[bi]:
+                    ss = short_to_ints(i=bb)
+                    for i in range(l_joltage):
+                        if ss[i] + number * local_b[i] > local_high_bounds_right_b[i]:
                             bad = True
                             break
                     if bad:
                         break
-                    ss = short_to_ints(i=bb)
-                    t_t_b = ints_to_short(i=(sss + number * (i in b) for i, sss in enumerate(ss)))
+                    t_t_b = ints_to_short(i=(ss[i] + number * local_b[i] for i in range(l_joltage)))
                     if t_t_b in best_right:
                         c_left = cc + number
                         c_right = best_right[t_t_b]
@@ -377,21 +377,21 @@ def find_best_solution(
                         if (len(best_left) + len(best_right)) % 10000 == 0:
                             print("Reduced size", len(best_left), len(best_right))
         else:
-            for bb in list(best_right.keys()):
+            for bb in list(best_right):
                 cc = best_right[bb]
                 max_number = best_solution - (cc + c_min_left)
 
                 number = 1
                 while number < max_number:
                     bad = False
-                    for bi, i in enumerate(b):
-                        if short_to_int(i=bb, k=i) - number < low_bounds_left_b[bi]:
+                    ss = short_to_ints(i=bb)
+                    for i in range(l_joltage):
+                        if ss[i] - number * local_b[i] < local_low_bounds_left_b[i]:
                             bad = True
                             break
                     if bad:
                         break
-                    ss = short_to_ints(i=bb)
-                    t_t_b = ints_to_short(i=(sss - number * (i in b) for i, sss in enumerate(ss)))
+                    t_t_b = ints_to_short(i=(ss[i] - number * local_b[i] for i in range(l_joltage)))
                     if t_t_b in best_left:
                         c_left = best_left[t_t_b]
                         c_right = cc + number
@@ -447,7 +447,6 @@ def get_best_result2(stuff, do_print=False):
             if do_print:
                 print("Best", best_solution)
             continue
-        best_right[t_t_b] = c_b
 
     if not best_right:
         return best_solution
@@ -476,27 +475,29 @@ def get_count2(p_internal, do_print=False):
     for i, stuff in enumerate(p_internal):
         # manually changing heuristics and saving results
         precomputed = {
-            # 4: 119,  # just takes a long time
             # 29: 229,
             # 37: 282,
-            # 38: 249,
             # 48: 86,
             # 51: 218,
             # 59: 120,
-            # 69: 117,
             # 77: 283,  # init guess 3
-            # 82: 231,
             # 105: 117,  # init guess 8
             # 115: 146,
-            # 117: 292,  # just takes a very very long time - and 30GB of RAM
-            # 127: 266,  # just takes a long time
             # 140: 98,
             # 150: 106,
             # 158: 123,
             # 174: 273,
+            4: 119,  # just takes a long time
+            38: 249,
+            69: 117,
+            82: 231,
+            117: 292,  # just takes a very very long time - and 30GB of RAM
+            127: 266,  # just takes a long time
+            167: 262,
+            168: 109,
         }
         skipped = [
-            # *list(range(115))
+            # *list(range(127))
         ]
         if i in skipped:
             print("Skipped", i, stuff)
@@ -514,6 +515,7 @@ def get_count2(p_internal, do_print=False):
 # get_count2(p_internal=[parsed(l=s)[4]], do_print=True)
 # get_count2(p_internal=[parsed(l=s)[117]], do_print=True)
 # get_count2(p_internal=[parsed(l=s)[150]], do_print=True)
-get_count2(p_internal=parsed(l=s))
+# get_count2(p_internal=parsed(l=s))
+get_count2(p_internal=parsed(l=s), do_print=True)
 # get_count2(p_internal=p, do_print=True)
 # get_count2(p_internal=p)
