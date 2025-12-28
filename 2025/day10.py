@@ -154,6 +154,8 @@ def find_best_solution(
         other_buttons, best_left, best_right, best_solution, do_print, l_joltage, loop_info,
 ):
     while len(other_buttons) > 0 and len(best_left) > 0 and len(best_right) > 0:
+        if do_print:
+            print(f"\tStartLoop {other_buttons=}|{len(best_left)=}|{len(best_right)=}")
         low_bounds_right = [min(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
         high_bounds_right = [max(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
         low_bounds_left = [min((short_to_int(i=b, k=k) for b in best_left)) for k in range(l_joltage)]
@@ -166,7 +168,7 @@ def find_best_solution(
         ]
         index_to_remove = sorted((set(index_from_left) | set(index_from_right)))
         if do_print:
-            print(f"{index_from_right=}|{index_from_left=}|{index_to_remove=}")
+            print(f"\t{index_from_right=}|{index_from_left=}|{index_to_remove=}")
         if index_to_remove and loop_info == "":
             def convert_button(button):
                 out = []
@@ -487,14 +489,15 @@ def get_count2(p_internal, do_print=False):
             # 150: 106,
             # 158: 123,
             # 174: 273,
-            4: 119,  # just takes a long time
-            38: 249,
-            69: 117,
-            82: 231,
-            117: 292,  # just takes a very very long time - and 30GB of RAM
-            127: 266,  # just takes a long time
-            167: 262,
-            168: 109,
+
+            # 4: 119,  # just takes a long time
+            # 38: 249,
+            # 69: 117,
+            # 82: 231,
+            # 117: 292,  # just takes a very very long time - and 22GB of RAM
+            # 127: 266,  # just takes a long time
+            # 167: 262,
+            # 168: 109,
         }
         skipped = [
             # *list(range(127))
