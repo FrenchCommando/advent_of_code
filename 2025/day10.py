@@ -125,14 +125,15 @@ def candidates_q(t, buttons_internal, l_joltage, do_print):
     i_last = len(clean_bit_to_set) - 1
 
     for i_button, button in enumerate(clean_bit_to_set):
+        is_last = i_button == i_last
         if do_print:
-            print(button, len(d_qq), len(clean_bit_to_set))
+            print(button, len(d_qq), len(clean_bit_to_set), f"\tTime in secs: {time.time() - start:.4f}")
         local_b = [(i in button) for i in range(l_joltage)]
         for tt in list(d_qq):
             number = 1
-            if i_button == i_last:
+            if is_last:
                 number = short_to_ints(i=tt)[optimal_non_zero]
-            c = d_qq[tt]
+            c = d_qq[tt] + number
             while number > 0:
                 bad = False
                 ss = short_to_ints(i=tt)
@@ -143,11 +144,33 @@ def candidates_q(t, buttons_internal, l_joltage, do_print):
                 if bad:
                     break
                 t_t_b = ints_to_short(i=(ss[i] - number * local_b[i] for i in range(l_joltage)))
-                d_qq[t_t_b] = min(d_qq.get(t_t_b, c + number), c + number)
+                if t_t_b in d_qq:
+                    if c >= d_qq[t_t_b]:
+                        break
+                d_qq[t_t_b] = c
                 number += 1
+                c += 1
+                if is_last:
+                    break
     if do_print:
-        print(f"{len(d_qq)=}")
+        print(f"End candidates_q {len(d_qq)=}", f"\tTime in secs: {time.time() - start:.4f}")
     return d_qq, optimal_non_zero
+
+
+def get_bounds(l_items):
+    if not l_items:
+        raise ValueError(f"l_items is empty {l_items=}")
+    first = l_items[0]
+    values = short_to_ints(i=first)
+    n = len(values)
+    low = [values[k] for k in range(n)]
+    high = [values[k] for k in range(n)]
+    for item in l_items[1:]:
+        value = short_to_ints(i=item)
+        for k in range(n):
+            low[k] = min(low[k], value[k])
+            high[k] = max(high[k], value[k])
+    return low, high
 
 
 def find_best_solution(
@@ -155,11 +178,14 @@ def find_best_solution(
 ):
     while len(other_buttons) > 0 and len(best_left) > 0 and len(best_right) > 0:
         if do_print:
-            print(f"\tStartLoop {other_buttons=}|{len(best_left)=}|{len(best_right)=}")
-        low_bounds_right = [min(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
-        high_bounds_right = [max(short_to_int(i=b, k=k) for b in best_right) for k in range(l_joltage)]
-        low_bounds_left = [min((short_to_int(i=b, k=k) for b in best_left)) for k in range(l_joltage)]
-        high_bounds_left = [max((short_to_int(i=b, k=k) for b in best_left)) for k in range(l_joltage)]
+            print(f"\tStartLoop {other_buttons=}|{len(best_left)=}|{len(best_right)=}", f"\tTime in secs: {time.time() - start:.4f}")
+
+        low_bounds_right, high_bounds_right = get_bounds(l_items=list(best_right))
+        if do_print:
+            print(f"\t\t\t{low_bounds_right=}|{high_bounds_right=}", f"\tTime in secs: {time.time() - start:.4f}")
+        low_bounds_left, high_bounds_left = get_bounds(l_items=list(best_left))
+        if do_print:
+            print(f"\t\t\t{low_bounds_left=}|{high_bounds_left=}", f"\tTime in secs: {time.time() - start:.4f}")
 
         index_from_right = [i for i, (low, high) in enumerate(zip(low_bounds_right, high_bounds_right)) if low == 0 and high == 0]
         index_from_left = [
@@ -168,7 +194,7 @@ def find_best_solution(
         ]
         index_to_remove = sorted((set(index_from_left) | set(index_from_right)))
         if do_print:
-            print(f"\t{index_from_right=}|{index_from_left=}|{index_to_remove=}")
+            print(f"\t{index_from_right=}|{index_from_left=}|{index_to_remove=}", f"\tTime in secs: {time.time() - start:.4f}")
         if index_to_remove and loop_info == "":
             def convert_button(button):
                 out = []
@@ -183,9 +209,9 @@ def find_best_solution(
                 return tuple(out)
 
             def convert_tuple(weights):
-                bbb = short_to_ints(i=weights)
+                bbbbb = short_to_ints(i=weights)
                 out = []
-                for i, w in enumerate(bbb):
+                for i, w in enumerate(bbbbb):
                     if i in index_to_remove:
                         continue
                     out.append(w)
@@ -196,7 +222,7 @@ def find_best_solution(
                 print(f"{other_buttons=}")
             other_buttons = [convert_button(b) for b in other_buttons]
             if do_print:
-                print(f"ReIndexed|{other_buttons=}")
+                print(f"\t\tReIndexed|{other_buttons=}")
             l_joltage = l_joltage - len(index_to_remove)
             c_best_left = dict()
             for b, c in best_left.items():
@@ -206,11 +232,11 @@ def find_best_solution(
             for b, c in best_right.items():
                 c_best_right[convert_tuple(weights=b)] = c
             best_right = c_best_right
-            low_bounds_left = [min((short_to_int(i=b, k=k) for b in best_left), default=0) for k in range(l_joltage)]
-            high_bounds_right = [max((short_to_int(i=b, k=k) for b in best_right), default=0) for k in range(l_joltage)]
+            low_bounds_right, high_bounds_right = get_bounds(l_items=list(best_right))
+            low_bounds_left, high_bounds_left = get_bounds(l_items=list(best_left))
             if do_print:
-                print(f"ReIndexed|{low_bounds_left=}")
-                print(f"ReIndexed|{high_bounds_right=}")
+                print(f"\t\tReIndexed|{low_bounds_left=}")
+                print(f"\t\tReIndexed|{high_bounds_right=}")
 
         remaining_buttons = tuple({u for bs in other_buttons for u in bs})
         b = other_buttons.pop(0)
@@ -218,50 +244,67 @@ def find_best_solution(
 
         c_min_left = min(best_left.values())
         c_min_right = min(best_right.values())
-        low_bounds_left_b = [min((short_to_int(i=bbb, k=bb) for bbb in best_left)) for bb in b]
-        high_bounds_right_b = [max((short_to_int(i=bbb, k=bb) for bbb in best_right)) for bb in b]
+        low_bounds_left_b = [low_bounds_left[bb] for bb in b]
+        high_bounds_right_b = [high_bounds_right[bb] for bb in b]
 
         if do_print:
             print(f"\t{b=} - {len(best_left)=} - {len(best_right)=}|"
-                  f"{c_min_left=}|{c_min_right=}|{low_bounds_left_b=}|{high_bounds_right_b=}")
+                  f"{c_min_left=}|{c_min_right=}|{low_bounds_left_b=}|{high_bounds_right_b=}",
+                  f"\tTime in secs: {time.time() - start:.4f}")
 
-        for bb in list(best_left.keys()):
+        bad_left = []
+        for bb in best_left:
             cc = best_left[bb]
             if cc + c_min_right >= best_solution:
-                del best_left[bb]
-        for bb in list(best_right.keys()):
+                bad_left.append(bb)
+        for left in bad_left:
+            del best_left[left]
+        bad_right = []
+        for bb in best_right:
             cc = best_right[bb]
             if cc + c_min_left >= best_solution:
-                del best_right[bb]
+                bad_right.append(bb)
+        for right in bad_right:
+            del best_right[right]
         if not best_left or not best_right:
             return best_solution
-        c_min_left = min(best_left.values())
-        c_min_right = min(best_right.values())
-        low_bounds_left_b = [min((short_to_int(i=bbb, k=bb) for bbb in best_left)) for bb in b]
-        high_bounds_right_b = [max((short_to_int(i=bbb, k=bb) for bbb in best_right)) for bb in b]
-        if do_print:
-            print(f"\t\tpruning using best_solution value | "
-                  f"{b=} - {len(best_left)=} - {len(best_right)=}|{c_min_left=}|{c_min_right=}|"
-                  f"{low_bounds_left_b=}|{high_bounds_right_b=}")
+        if bad_left or bad_right:
+            c_min_left = min(best_left.values())
+            c_min_right = min(best_right.values())
+            low_bounds_right, high_bounds_right = get_bounds(l_items=list(best_right))
+            low_bounds_left, high_bounds_left = get_bounds(l_items=list(best_left))
+            low_bounds_left_b = [low_bounds_left[bb] for bb in b]
+            high_bounds_right_b = [high_bounds_right[bb] for bb in b]
+            if do_print:
+                print(f"\t\tpruning using best_solution value | "
+                      f"{b=} - {len(best_left)=} - {len(best_right)=}|{c_min_left=}|{c_min_right=}|"
+                      f"{low_bounds_left_b=}|{high_bounds_right_b=}")
+        else:
+            if do_print:
+                print(f"\t\tNothing was pruned | "
+                      f"{b=} - {len(best_left)=} - {len(best_right)=}|{c_min_left=}|{c_min_right=}|"
+                      f"{low_bounds_left_b=}|{high_bounds_right_b=}")
 
         mask_left = dict()
-        mask_right = dict()
         for bb in best_left:
             b_int = short_to_ints(i=bb)
             t_b = tuple(v for i, v in enumerate(b_int) if i not in remaining_buttons)
             if t_b not in mask_left:
                 mask_left[t_b] = dict()
             mask_left[t_b][bb] = best_left[bb]
+        del best_left
+        mask_right = dict()
         for bb in best_right:
             b_int = short_to_ints(i=bb)
             t_b = tuple(v for i, v in enumerate(b_int) if i not in remaining_buttons)
             if t_b not in mask_right:
                 mask_right[t_b] = dict()
             mask_right[t_b][bb] = best_right[bb]
+        del best_right
         mask_both = set(u for u in mask_left.keys() & mask_right.keys())
 
         if do_print:
-            print(f"\t\tintermediate for mask {len(mask_left)=} - {len(mask_right)=} - {len(mask_both)=} | \t{len(best_left)=}, {len(best_right)=}")
+            print(f"\t\tintermediate for mask {len(mask_left)=} - {len(mask_right)=} - {len(mask_both)=}")
 
         if len(mask_both) > 1:
             l_mask = len(mask_both)
@@ -286,7 +329,7 @@ def find_best_solution(
 
                 if do_print:
                     print(f"\t\tSub-branch|{i_mask} | {len(best_left_temp)=}, {len(best_right_temp)=} | {other_buttons_temp=}")
-                    print(f"\t\t\t{loop_info_loop}")
+                    print(f"\t{loop_info_loop}")
                 # print(bb_mask, best_left_temp, best_left, other_buttons_temp, best_right_temp)
                 best_solution_temp = find_best_solution(
                     other_buttons_temp, best_left_temp, best_right_temp, best_solution,
@@ -312,50 +355,19 @@ def find_best_solution(
         if do_print:
             print(f"\t\t{len(mask_left)=} - {len(mask_right)=} - {len(mask_both)=} | \t{len(best_left)=}, {len(best_right)=}")
 
-        if is_last:
-            # reduce the size of best_left, best_right
-            ll_left = []
-            ll_right = []
-            for ibb, bb in enumerate(best_left):
-                cc = best_left[bb]
-                max_number = best_solution - (cc + c_min_right)
-                # if do_print:
-                #     print(f"\t\t{bb=} - {len(l_left)=}, {len(l_right)=} - {max_number=}")
-                number = 1
-                while number < max_number:
-                    bad = False
-                    for bi, i in enumerate(b):
-                        if short_to_int(i=bb, k=i) + number > high_bounds_right_b[bi]:
-                            bad = True
-                            break
-                    if bad:
-                        break
-                    ss = short_to_ints(i=bb)
-                    t_t_b = ints_to_short(i=(sss + number * (i in b) for i, sss in enumerate(ss)))
-                    if t_t_b in best_right:
-                        ll_left.append(bb)
-                        ll_right.append(t_t_b)
-                    number += 1
-                if do_print:
-                    if ibb % 100000 == 0:
-                        print(f"\t\t{ibb=} {bb=} {number=} {len(best_left)=}, {len(best_right)=} | {len(ll_left)=} | {len(ll_right)=}")
-            best_left = {left: best_left[left] for left in ll_left}
-            best_right = {right: best_right[right] for right in ll_right}
-            if do_print:
-                print(f"\tafter pruning last loop: {len(best_left)=} - {len(best_right)=}")
-
         local_b = [(i in b) for i in range(l_joltage)]
-        local_high_bounds_right_b = list(high_bounds_right)
-        local_low_bounds_left_b = list(low_bounds_left)
-        if len(best_right) > 10:
-            for bb in list(best_left):
+        if len(best_right) > len(best_left):
+        # if len(best_right) > 50:
+            local_high_bounds_right_b = list(high_bounds_right)
+            best_left_plus = dict()
+            for bb in best_left:
                 cc = best_left[bb]
                 max_number = best_solution - (cc + c_min_right)
 
+                ss = short_to_ints(i=bb)
                 number = 1
                 while number < max_number:
                     bad = False
-                    ss = short_to_ints(i=bb)
                     for i in range(l_joltage):
                         if ss[i] + number * local_b[i] > local_high_bounds_right_b[i]:
                             bad = True
@@ -370,23 +382,28 @@ def find_best_solution(
                         if do_print:
                             print("Best", best_solution, c_full)
                         best_solution = min(c_full, best_solution)
+                    if t_t_b in best_left:
+                        if best_left[t_t_b] <= cc + number:
+                            break
+                    if t_t_b in best_left_plus:
+                        if best_left_plus[t_t_b] <= cc + number:
+                            break
                     if not is_last:
-                        best_left[t_t_b] = min(cc + number, best_left.get(t_t_b, cc + number))
+                        best_left_plus[t_t_b] = cc + number
                     number += 1
-                if is_last:
-                    del best_left[bb]
-                    if do_print:
-                        if (len(best_left) + len(best_right)) % 10000 == 0:
-                            print("Reduced size", len(best_left), len(best_right))
+            for bbb, vvv in best_left_plus.items():
+                best_left[bbb] = vvv
         else:
-            for bb in list(best_right):
+            best_right_plus = dict()
+            local_low_bounds_left_b = list(low_bounds_left)
+            for bb in best_right:
                 cc = best_right[bb]
                 max_number = best_solution - (cc + c_min_left)
 
+                ss = short_to_ints(i=bb)
                 number = 1
                 while number < max_number:
                     bad = False
-                    ss = short_to_ints(i=bb)
                     for i in range(l_joltage):
                         if ss[i] - number * local_b[i] < local_low_bounds_left_b[i]:
                             bad = True
@@ -401,15 +418,17 @@ def find_best_solution(
                         if do_print:
                             print("Best", best_solution, c_full)
                         best_solution = min(c_full, best_solution)
+                    if t_t_b in best_right:
+                        if best_right[t_t_b] <= cc + number:
+                            break
+                    if t_t_b in best_right_plus:
+                        if best_right_plus[t_t_b] <= cc + number:
+                            break
                     if not is_last:
-                        best_right[t_t_b] = min(cc + number, best_right.get(t_t_b, cc + number))
+                        best_right_plus[t_t_b] = cc + number
                     number += 1
-                if is_last:
-                    del best_right[bb]
-                    if do_print:
-                        if (len(best_left) + len(best_right)) % 10000 == 0:
-                            print("Reduced size", len(best_left), len(best_right))
-
+            for bbb, vvv in best_right_plus.items():
+                best_right[bbb] = vvv
         if do_print:
             print(f"\t{b=} - {len(best_left)=} - {len(best_right)=} - Post")
 
@@ -515,6 +534,8 @@ def get_count2(p_internal, do_print=False):
     return count
 
 
+import time
+start = time.time()
 # get_count2(p_internal=[parsed(l=s)[4]], do_print=True)
 # get_count2(p_internal=[parsed(l=s)[117]], do_print=True)
 # get_count2(p_internal=[parsed(l=s)[150]], do_print=True)
@@ -522,3 +543,6 @@ def get_count2(p_internal, do_print=False):
 get_count2(p_internal=parsed(l=s), do_print=True)
 # get_count2(p_internal=p, do_print=True)
 # get_count2(p_internal=p)
+end = time.time()
+print()
+print(f"Time in secs: {end - start:.4f}")
